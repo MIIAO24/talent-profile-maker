@@ -1,6 +1,6 @@
 // src/config/api.ts
 export const API_CONFIG = {
-  BASE_URL: '/api',
+  BASE_URL: 'https://9vr9g1k66k.execute-api.us-east-1.amazonaws.com/prod',
   ENDPOINTS: {
     GENERATE_CV: '/generate-cv'
   }
