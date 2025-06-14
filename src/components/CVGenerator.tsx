@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,7 +10,9 @@ import EducationForm from './forms/EducationForm';
 import SkillsForm from './forms/SkillsForm';
 import RoleSpecificForm from './forms/RoleSpecificForm';
 import CVPreview from './CVPreview';
-import { FileText, Eye, Download, CheckCircle, Clock, User, Briefcase, GraduationCap, Settings } from 'lucide-react';
+import { FileText, Eye, Download, CheckCircle, Clock, User, Briefcase, GraduationCap, Settings, Loader2 } from 'lucide-react';
+import { generateCV } from '@/config/api';
+import { toast } from '@/hooks/use-toast';
 
 const CVGenerator = () => {
   const [cvData, setCvData] = useState<CVData>({
@@ -44,12 +45,53 @@ const CVGenerator = () => {
 
   const [activeTab, setActiveTab] = useState('personal');
   const [showPreview, setShowPreview] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedCVUrl, setGeneratedCVUrl] = useState<string | null>(null);
 
   const updateCVData = (section: keyof CVData, data: any) => {
     setCvData(prev => ({
       ...prev,
       [section]: data
     }));
+  };
+
+  const handleGenerateCV = async () => {
+    if (!cvData.personalInfo.fullName || !cvData.personalInfo.email) {
+      toast({
+        title: "Información incompleta",
+        description: "Por favor completa al menos el nombre y email antes de generar el CV.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    
+    try {
+      const result = await generateCV(cvData);
+      
+      if (result.success) {
+        setGeneratedCVUrl(result.cvUrl);
+        toast({
+          title: "¡CV generado exitosamente!",
+          description: `Tu CV ha sido creado con ID: ${result.cvId}`,
+        });
+        
+        // Abrir el CV en una nueva pestaña
+        window.open(result.cvUrl, '_blank');
+      } else {
+        throw new Error(result.message || 'Error desconocido');
+      }
+    } catch (error) {
+      console.error('Error generating CV:', error);
+      toast({
+        title: "Error al generar CV",
+        description: "Hubo un problema al generar tu CV. Por favor intenta de nuevo.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handlePrint = () => {
@@ -91,14 +133,35 @@ const CVGenerator = () => {
           >
             ← Editar CV
           </Button>
-          <Button 
-            onClick={handlePrint}
-            size="lg"
-            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Descargar PDF
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handlePrint}
+              variant="outline"
+              size="lg"
+              className="transition-all duration-300 hover:scale-105"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Imprimir PDF
+            </Button>
+            <Button 
+              onClick={handleGenerateCV}
+              disabled={isGenerating}
+              size="lg"
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4 mr-2" />
+                  Generar CV AWS
+                </>
+              )}
+            </Button>
+          </div>
         </div>
         <CVPreview cvData={cvData} />
       </div>
@@ -275,19 +338,58 @@ const CVGenerator = () => {
                 </div>
               </div>
 
-              <Button 
-                onClick={() => setShowPreview(true)}
-                className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg"
-                disabled={!cvData.personalInfo.fullName}
-                size="lg"
-              >
-                <Eye className="w-4 h-4 mr-2" />
-                Ver CV Completo
-              </Button>
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <Button 
+                  onClick={() => setShowPreview(true)}
+                  className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 shadow-lg"
+                  disabled={!cvData.personalInfo.fullName}
+                  size="lg"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Ver CV Completo
+                </Button>
+
+                <Button 
+                  onClick={handleGenerateCV}
+                  disabled={isGenerating || !cvData.personalInfo.fullName}
+                  className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 transition-all duration-300 hover:scale-105 shadow-lg"
+                  size="lg"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Generando...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4 mr-2" />
+                      Generar CV AWS
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {generatedCVUrl && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                    <span className="text-green-800 font-medium">CV Generado</span>
+                  </div>
+                  <a 
+                    href={generatedCVUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-green-600 hover:text-green-700 underline text-sm break-all"
+                  >
+                    Ver CV generado →
+                  </a>
+                </div>
+              )}
 
               <div className="text-center">
                 <p className="text-xs text-muted-foreground">
-                  💡 Completa al menos la información personal para ver la vista previa
+                  💡 Completa al menos la información personal para generar tu CV
                 </p>
               </div>
             </div>
