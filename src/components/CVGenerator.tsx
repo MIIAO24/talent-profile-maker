@@ -78,7 +78,7 @@ const CVGenerator = () => {
         });
         
         // Abrir el CV en una nueva pestaña
-        window.open(result.cvUrl, '_blank');
+        window.open(result.url, '_blank');
       } else {
         throw new Error(result.message || 'Error desconocido');
       }
